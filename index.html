@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>論文サーフィン（スクロール操作版）</title>
+    <title>論文サーフィン（Scholar連携版）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
 
     <style>
@@ -24,7 +24,6 @@
         #search-container { position: relative; width: 600px; display: flex; gap: 10px; }
         input { flex-grow: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; outline: none; }
         button { padding: 8px 16px; background-color: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #555; }
         
         /* 検索結果 */
         #search-results {
@@ -57,12 +56,35 @@
         /* リストアイテム */
         .paper-list-item {
             padding: 12px; margin-bottom: 8px; border: 1px solid #eee; border-radius: 6px;
-            background: #fff; cursor: pointer; transition: all 0.2s; position: relative;
+            background: #fff; cursor: pointer; transition: all 0.2s;
+            position: relative; display: flex; flex-direction: column; gap: 4px;
         }
         .paper-list-item:hover { background-color: #eef5ff; border-color: #b3d7ff; }
-        .item-title { font-weight: bold; font-size: 13px; color: #333; margin-bottom: 6px; line-height: 1.4; }
-        .item-meta { font-size: 11px; color: #888; margin-bottom: 4px; }
-        .paperpile-placeholder { min-height: 20px; }
+        .item-title { font-weight: bold; font-size: 13px; color: #333; line-height: 1.4; }
+        .item-meta { font-size: 11px; color: #888; }
+        
+        /* アクションボタン群 */
+        .item-actions {
+            display: flex; gap: 5px; margin-top: 5px;
+        }
+        .action-btn {
+            padding: 4px 8px; font-size: 11px; border-radius: 4px; text-decoration: none;
+            font-weight: bold; display: inline-flex; align-items: center; gap: 4px;
+            transition: background 0.2s;
+        }
+        /* Google Scholarボタン */
+        .btn-scholar {
+            background-color: #4285f4; color: white; border: none;
+        }
+        .btn-scholar:hover { background-color: #3367d6; }
+        
+        /* PDF/DOIボタン */
+        .btn-doi {
+            background-color: #f1f3f4; color: #333; border: 1px solid #ddd;
+        }
+        .btn-doi:hover { background-color: #e8eaed; }
+
+        /* メタデータ（非表示・Paperpileスキャン用） */
         .coins-data { display: none; }
 
         #left-sidebar { border-right: 1px solid #ddd; border-left: none; }
@@ -72,7 +94,7 @@
         #center-area { flex-grow: 1; position: relative; background-color: #fafafa; overflow: hidden; }
         #cy { width: 100%; height: 100%; }
 
-        /* ズームコントローラー（新設） */
+        /* ズームコントローラー */
         #zoom-controls {
             position: absolute; bottom: 20px; right: 20px; z-index: 100;
             display: flex; flex-direction: column; gap: 5px;
@@ -96,7 +118,7 @@
 
     <div id="header">
         <div id="search-container">
-            <input type="text" id="searchInput" placeholder="論文タイトル (例: Transformer)" onkeydown="if(event.key === 'Enter') searchPapers()">
+            <input type="text" id="searchInput" placeholder="論文タイトル (例: Attention Is All You Need)" onkeydown="if(event.key === 'Enter') searchPapers()">
             <button onclick="searchPapers()">検索</button>
             <div id="search-results"></div>
         </div>
@@ -137,9 +159,8 @@
         let cy = cytoscape({
             container: document.getElementById('cy'),
             layout: { name: 'preset' },
-            // ★重要：ここでホイールズームを無効化します
             userZoomingEnabled: false, 
-            userPanningEnabled: true, // ドラッグ移動は許可
+            userPanningEnabled: true,
             minZoom: 0.1, maxZoom: 3,
             style: [
                 {
@@ -162,64 +183,29 @@
                 },
                 { selector: 'node[type="reference"]', style: { 'background-color': '#e3f2fd', 'border-color': '#90caf9' } },
                 { selector: 'node[type="citation"]', style: { 'background-color': '#fff3e0', 'border-color': '#ffcc80' } },
-                {
-                    selector: 'node[type="year-label"]',
-                    style: {
-                        'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0,
-                        'label': 'data(label)', 'font-size': '18px', 'font-weight': 'bold', 'color': '#ccc',
-                        'text-halign': 'center', 'text-valign': 'center'
-                    }
-                },
-                {
-                    selector: 'node[type="gap-label"]',
-                    style: {
-                        'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0,
-                        'label': '⋮', 'font-size': '24px', 'font-weight': 'bold', 'color': '#ddd',
-                        'text-halign': 'center', 'text-valign': 'center'
-                    }
-                },
-                {
-                    selector: 'edge',
-                    style: {
-                        'width': 2, 'line-color': '#e0e0e0', 'target-arrow-shape': 'triangle',
-                        'target-arrow-color': '#e0e0e0', 'arrow-scale': 1.2, 'curve-style': 'bezier'
-                    }
-                }
+                { selector: 'node[type="year-label"]', style: { 'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0, 'label': 'data(label)', 'font-size': '18px', 'font-weight': 'bold', 'color': '#ccc', 'text-halign': 'center', 'text-valign': 'center' } },
+                { selector: 'node[type="gap-label"]', style: { 'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0, 'label': '⋮', 'font-size': '24px', 'font-weight': 'bold', 'color': '#ddd', 'text-halign': 'center', 'text-valign': 'center' } },
+                { selector: 'edge', style: { 'width': 2, 'line-color': '#e0e0e0', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#e0e0e0', 'arrow-scale': 1.2, 'curve-style': 'bezier' } }
             ]
         });
 
-        // ★重要：マウスホイールを「スクロール」にする設定
+        // マウスホイール制御
         document.getElementById('cy').addEventListener('wheel', function(e) {
-            e.preventDefault(); // ブラウザのスクロールを止める
-            
+            e.preventDefault();
             const pan = cy.pan();
-            const scrollSpeed = 0.8; // スクロールの速さ調整
-            
-            // 現在の位置から、マウスホイールの回転分だけY軸（上下）をずらす
-            // deltaYが正（下回転）なら、グラフを上に動かす（下のを見るため）＝pan.yを減らす
-            cy.pan({
-                x: pan.x,
-                y: pan.y - (e.deltaY * scrollSpeed)
-            });
+            const scrollSpeed = 0.8;
+            cy.pan({ x: pan.x, y: pan.y - (e.deltaY * scrollSpeed) });
         });
 
-        // ズームボタン用関数
         function zoomGraph(level) {
             const currentZoom = cy.zoom();
-            cy.zoom({
-                level: currentZoom + level,
-                position: { x: cy.width()/2, y: cy.height()/2 } // 画面中心に向かってズーム
-            });
+            cy.zoom({ level: currentZoom + level, position: { x: cy.width()/2, y: cy.height()/2 } });
         }
         function resetZoom() {
             const mainNode = cy.nodes('[type="main"]');
-            if(mainNode.length > 0) {
-                cy.center(mainNode);
-                cy.zoom(1.0);
-            }
+            if(mainNode.length > 0) { cy.center(mainNode); cy.zoom(1.0); }
         }
 
-        // ノードクリック時の動作
         cy.on('tap', 'node', function(evt){
             const node = evt.target;
             if (node.data('type') === 'year-label' || node.data('type') === 'gap-label') return;
@@ -233,22 +219,17 @@
         function cleanId(url) { return url.replace("https://openalex.org/", ""); }
         function trimTitle(title) { return title && title.length > 25 ? title.substring(0, 25) + "..." : ""; }
 
-        // 検索処理
         async function searchPapers() {
             const query = document.getElementById('searchInput').value;
             const resultsDiv = document.getElementById('search-results');
             if (!query) return;
-
             document.getElementById('status-bar').textContent = "検索中...";
             resultsDiv.style.display = 'none';
-
             try {
                 const url = `${API_BASE}?search=${encodeURIComponent(query)}&filter=type:article&per_page=10`;
                 const response = await fetch(url);
                 const data = await response.json();
-
                 if (!data.results || data.results.length === 0) return;
-
                 resultsDiv.innerHTML = '';
                 data.results.forEach(paper => {
                     const id = cleanId(paper.id);
@@ -268,12 +249,10 @@
             } catch (e) { console.error(e); }
         }
 
-        // グラフ描画
         async function loadGraph(paperId) {
             const statusBar = document.getElementById('status-bar');
             const leftList = document.getElementById('left-list');
             const rightList = document.getElementById('right-list');
-
             statusBar.textContent = "データを取得中...";
             cy.elements().remove();
             leftList.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">読み込み中...</div>';
@@ -291,20 +270,11 @@
                 const processNode = (paper, type) => {
                     if (!paper || !paper.id || !paper.publication_year) return null;
                     const pid = cleanId(paper.id);
-                    
                     if (!nodesData.some(n => n.id === pid)) {
                         activeYears.add(paper.publication_year);
                         const title = paper.title || paper.display_name || "No Title";
                         const label = type === 'main' ? `${title}\n(${paper.publication_year})` : `${trimTitle(title)}\n(${paper.publication_year})`;
-                        
-                        nodesData.push({
-                            id: pid,
-                            label: label,
-                            fullTitle: title,
-                            year: paper.publication_year,
-                            type: type,
-                            paperId: pid
-                        });
+                        nodesData.push({ id: pid, label: label, fullTitle: title, year: paper.publication_year, type: type, paperId: pid });
                     }
                     return pid;
                 };
@@ -312,6 +282,7 @@
                 processNode(mainPaper, 'main');
                 const mainId = cleanId(mainPaper.id);
 
+                // Fetch References
                 const refIds = mainPaper.referenced_works.slice(0, 15).map(url => cleanId(url));
                 let refPapers = [];
                 if (refIds.length > 0) {
@@ -320,17 +291,19 @@
                     refPapers = refData.results;
                 }
 
+                // Fetch Citations
                 const citeRes = await fetch(`${API_BASE}?filter=cites:${mainId}&per_page=20`);
                 const citeData = await citeRes.json();
                 let citePapers = citeData.results;
 
-                // リスト生成
+                // Create Lists
                 leftList.innerHTML = '';
                 if(refPapers.length === 0) leftList.innerHTML = '<div style="padding:10px; color:#999;">なし</div>';
                 refPapers.forEach(paper => {
                     const item = createListItem(paper);
                     item.onclick = (e) => {
-                        if(!e.target.closest('.paperpile-button') && e.target.tagName !== 'A') loadGraph(cleanId(paper.id));
+                        // ボタン以外の場所をクリックしたらサーフィン
+                        if(!e.target.closest('a')) loadGraph(cleanId(paper.id));
                     };
                     leftList.appendChild(item);
                     const pid = processNode(paper, 'reference');
@@ -342,21 +315,20 @@
                 citePapers.forEach(paper => {
                     const item = createListItem(paper);
                     item.onclick = (e) => {
-                        if(!e.target.closest('.paperpile-button') && e.target.tagName !== 'A') loadGraph(cleanId(paper.id));
+                        if(!e.target.closest('a')) loadGraph(cleanId(paper.id));
                     };
                     rightList.appendChild(item);
                     const pid = processNode(paper, 'citation');
                     if(pid) edgesData.push({ source: mainId, target: pid });
                 });
 
+                // Timeline logic
                 if (activeYears.size === 0) { statusBar.textContent = "データなし"; return; }
                 const sortedYears = Array.from(activeYears).sort((a, b) => a - b);
-                
-                // 座標計算
                 const yearToY = {};
                 let currentY = 0;
-                const standardSpacing = 100; 
-                const gapSpacing = 60;       
+                const standardSpacing = 100;
+                const gapSpacing = 60;
                 let gapNodes = [];
 
                 sortedYears.forEach((year, index) => {
@@ -366,12 +338,7 @@
                             currentY += standardSpacing;
                         } else {
                             currentY += gapSpacing / 2;
-                            gapNodes.push({
-                                group: 'nodes',
-                                data: { id: `gap_${prevYear}_${year}`, label: '⋮', type: 'gap-label' },
-                                position: { x: -100, y: currentY },
-                                selectable: false, grabbable: false
-                            });
+                            gapNodes.push({ group: 'nodes', data: { id: `gap_${prevYear}_${year}`, label: '⋮', type: 'gap-label' }, position: { x: -100, y: currentY }, selectable: false, grabbable: false });
                             currentY += gapSpacing / 2;
                         }
                     }
@@ -391,58 +358,54 @@
                 const minX = Math.min(...nodesWithPosition.map(n => n.position.x));
                 const labelX = minX - 120;
                 gapNodes.forEach(g => g.position.x = labelX);
-                
                 sortedYears.forEach(year => {
-                    nodesWithPosition.push({
-                        group: 'nodes',
-                        data: { id: 'lbl_'+year, label: String(year), type: 'year-label' },
-                        position: { x: labelX, y: yearToY[year] },
-                        selectable: false, grabbable: false
-                    });
+                    nodesWithPosition.push({ group: 'nodes', data: { id: 'lbl_'+year, label: String(year), type: 'year-label' }, position: { x: labelX, y: yearToY[year] }, selectable: false, grabbable: false });
                 });
 
                 cy.add(nodesWithPosition);
                 cy.add(gapNodes);
                 cy.add(edgesData.map(e => ({ group: 'edges', data: e })));
-
-                // 中心を合わせてズームをリセット
                 const mainNode = cy.nodes('[type="main"]');
                 cy.center(mainNode);
                 cy.zoom(1.0);
-                
                 statusBar.textContent = `表示中: ${mainPaper.title || "No Title"}`;
-
-            } catch (e) {
-                console.error(e);
-                statusBar.textContent = "エラーが発生しました";
-            }
+            } catch (e) { console.error(e); statusBar.textContent = "エラーが発生しました"; }
         }
 
-        // リストアイテム作成（Paperpile対応）
+        // リストアイテム作成（Scholarボタン付き）
         function createListItem(paper) {
             const div = document.createElement('div');
             div.className = 'paper-list-item';
             
             const author = paper.authorships?.[0]?.author?.display_name || "Unknown";
-            const doi = paper.doi ? paper.doi.replace("https://doi.org/", "") : "";
+            const doi = paper.doi ? paper.doi : "";
             const title = paper.title || "No Title";
             const year = paper.publication_year;
             
+            // Scholar検索URLの作成
+            const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`;
+            
+            // Paperpileメタデータ（念のため残す）
             const openUrlParams = [
-                `ctx_ver=Z39.88-2004`,
-                `rft_val_fmt=info:ofi/fmt:kev:mtx:journal`,
-                `rft.genre=article`,
-                `rft.atitle=${encodeURIComponent(title)}`,
-                `rft.date=${year}`,
-                `rft.au=${encodeURIComponent(author)}`
+                `ctx_ver=Z39.88-2004`, `rft_val_fmt=info:ofi/fmt:kev:mtx:journal`,
+                `rft.genre=article`, `rft.atitle=${encodeURIComponent(title)}`,
+                `rft.date=${year}`, `rft.au=${encodeURIComponent(author)}`
             ];
-            if (doi) openUrlParams.push(`rft_id=info:doi/${doi}`);
+            if (doi) openUrlParams.push(`rft_id=${doi}`);
             const coinsTitle = openUrlParams.join('&');
 
             div.innerHTML = `
                 <div class="item-title">${title}</div>
                 <div class="item-meta">${year} • ${author}</div>
-                <div class="paperpile-placeholder"></div>
+                
+                <div class="item-actions">
+                    <a href="${scholarUrl}" target="_blank" class="action-btn btn-scholar">
+                        🎓 Scholar (Paperpile)
+                    </a>
+                    
+                    ${doi ? `<a href="${doi}" target="_blank" class="action-btn btn-doi">📄 DOI</a>` : ''}
+                </div>
+                
                 <span class="Z3988" title="${coinsTitle}"></span>
             `;
             return div;
