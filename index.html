@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>論文サーフィン（Scholar連携版）</title>
+    <title>論文サーフィン（スクロール連動版）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
 
     <style>
@@ -50,43 +50,41 @@
             font-weight: bold; color: #555; font-size: 13px; text-align: center;
         }
         .sidebar-content {
-            flex-grow: 1; overflow-y: auto; padding: 10px;
+            flex-grow: 1; overflow-y: auto; padding: 10px; scroll-behavior: smooth; /* スクロールを滑らかに */
         }
 
         /* リストアイテム */
         .paper-list-item {
             padding: 12px; margin-bottom: 8px; border: 1px solid #eee; border-radius: 6px;
-            background: #fff; cursor: pointer; transition: all 0.2s;
+            background: #fff; cursor: pointer; transition: all 0.3s;
             position: relative; display: flex; flex-direction: column; gap: 4px;
         }
         .paper-list-item:hover { background-color: #eef5ff; border-color: #b3d7ff; }
+        
+        /* ★ハイライト時のスタイル（黄色く光る） */
+        .paper-list-item.highlight {
+            background-color: #fffacd; /* 薄い黄色 */
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transform: scale(1.02); /* 少し大きく */
+        }
+
         .item-title { font-weight: bold; font-size: 13px; color: #333; line-height: 1.4; }
         .item-meta { font-size: 11px; color: #888; }
         
         /* アクションボタン群 */
-        .item-actions {
-            display: flex; gap: 5px; margin-top: 5px;
-        }
+        .item-actions { display: flex; gap: 5px; margin-top: 5px; }
         .action-btn {
             padding: 4px 8px; font-size: 11px; border-radius: 4px; text-decoration: none;
             font-weight: bold; display: inline-flex; align-items: center; gap: 4px;
             transition: background 0.2s;
         }
-        /* Google Scholarボタン */
-        .btn-scholar {
-            background-color: #4285f4; color: white; border: none;
-        }
+        .btn-scholar { background-color: #4285f4; color: white; border: none; }
         .btn-scholar:hover { background-color: #3367d6; }
-        
-        /* PDF/DOIボタン */
-        .btn-doi {
-            background-color: #f1f3f4; color: #333; border: 1px solid #ddd;
-        }
+        .btn-doi { background-color: #f1f3f4; color: #333; border: 1px solid #ddd; }
         .btn-doi:hover { background-color: #e8eaed; }
 
-        /* メタデータ（非表示・Paperpileスキャン用） */
         .coins-data { display: none; }
-
         #left-sidebar { border-right: 1px solid #ddd; border-left: none; }
         #right-sidebar { border-left: 1px solid #ddd; border-right: none; }
 
@@ -118,7 +116,7 @@
 
     <div id="header">
         <div id="search-container">
-            <input type="text" id="searchInput" placeholder="論文タイトル (例: Attention Is All You Need)" onkeydown="if(event.key === 'Enter') searchPapers()">
+            <input type="text" id="searchInput" placeholder="論文タイトル (例: BERT)" onkeydown="if(event.key === 'Enter') searchPapers()">
             <button onclick="searchPapers()">検索</button>
             <div id="search-results"></div>
         </div>
@@ -128,7 +126,7 @@
         <div id="left-sidebar" class="sidebar">
             <div class="sidebar-header">参考文献 (References)</div>
             <div id="left-list" class="sidebar-content">
-                <div style="color:#999; font-size:12px; text-align:center; margin-top:20px;">ここにリストが表示されます</div>
+                <div style="color:#999; font-size:12px; text-align:center; margin-top:20px;">検索待ち</div>
             </div>
         </div>
 
@@ -147,7 +145,7 @@
         <div id="right-sidebar" class="sidebar">
             <div class="sidebar-header">被引用文献 (Cited By)</div>
             <div id="right-list" class="sidebar-content">
-                <div style="color:#999; font-size:12px; text-align:center; margin-top:20px;">ここにリストが表示されます</div>
+                <div style="color:#999; font-size:12px; text-align:center; margin-top:20px;">検索待ち</div>
             </div>
         </div>
     </div>
@@ -185,7 +183,9 @@
                 { selector: 'node[type="citation"]', style: { 'background-color': '#fff3e0', 'border-color': '#ffcc80' } },
                 { selector: 'node[type="year-label"]', style: { 'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0, 'label': 'data(label)', 'font-size': '18px', 'font-weight': 'bold', 'color': '#ccc', 'text-halign': 'center', 'text-valign': 'center' } },
                 { selector: 'node[type="gap-label"]', style: { 'shape': 'rectangle', 'width': '1px', 'height': '1px', 'background-opacity': 0, 'label': '⋮', 'font-size': '24px', 'font-weight': 'bold', 'color': '#ddd', 'text-halign': 'center', 'text-valign': 'center' } },
-                { selector: 'edge', style: { 'width': 2, 'line-color': '#e0e0e0', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#e0e0e0', 'arrow-scale': 1.2, 'curve-style': 'bezier' } }
+                { selector: 'edge', style: { 'width': 2, 'line-color': '#e0e0e0', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#e0e0e0', 'arrow-scale': 1.2, 'curve-style': 'bezier' } },
+                // タップしたときのエフェクト
+                { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#ffcc00' } }
             ]
         });
 
@@ -206,15 +206,46 @@
             if(mainNode.length > 0) { cy.center(mainNode); cy.zoom(1.0); }
         }
 
+        // ==========================================
+        // ★ここが新機能：タップでスクロール連動
+        // ==========================================
         cy.on('tap', 'node', function(evt){
             const node = evt.target;
-            if (node.data('type') === 'year-label' || node.data('type') === 'gap-label') return;
             const paperId = node.data('paperId');
-            if (paperId && node.data('type') !== 'main') {
-                document.getElementById('searchInput').value = node.data('fullTitle');
-                loadGraph(paperId);
+
+            // ラベル類は無視
+            if (node.data('type') === 'year-label' || node.data('type') === 'gap-label') return;
+
+            // 中心論文なら何もしない
+            if (node.data('type') === 'main') return;
+
+            if (paperId) {
+                // 1. サイドバーの該当要素を探してスクロール
+                scrollToListItem(paperId);
+                
+                // 2. ステータスバー更新
+                document.getElementById('status-bar').textContent = "詳細を見るにはリストをクリックしてください";
             }
         });
+
+        // リスト項目へスクロールする関数
+        function scrollToListItem(paperId) {
+            const elementId = `item-${paperId}`;
+            const element = document.getElementById(elementId);
+            
+            // 以前のハイライトを全削除
+            document.querySelectorAll('.paper-list-item.highlight').forEach(el => el.classList.remove('highlight'));
+
+            if (element) {
+                // 要素が見える位置までスムーズにスクロール
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // ハイライトクラスを追加（光らせる）
+                element.classList.add('highlight');
+            } else {
+                console.log("リスト内に要素が見つかりません:", elementId);
+            }
+        }
 
         function cleanId(url) { return url.replace("https://openalex.org/", ""); }
         function trimTitle(title) { return title && title.length > 25 ? title.substring(0, 25) + "..." : ""; }
@@ -282,17 +313,16 @@
                 processNode(mainPaper, 'main');
                 const mainId = cleanId(mainPaper.id);
 
-                // Fetch References
-                const refIds = mainPaper.referenced_works.slice(0, 15).map(url => cleanId(url));
+                // APIリミットを少し増やしてリストのヒット率を上げます
+                const refIds = mainPaper.referenced_works.slice(0, 30).map(url => cleanId(url));
                 let refPapers = [];
                 if (refIds.length > 0) {
-                    const refRes = await fetch(`${API_BASE}?filter=openalex_id:${refIds.join('|')}&per_page=20`);
+                    const refRes = await fetch(`${API_BASE}?filter=openalex_id:${refIds.join('|')}&per_page=30`);
                     const refData = await refRes.json();
                     refPapers = refData.results;
                 }
 
-                // Fetch Citations
-                const citeRes = await fetch(`${API_BASE}?filter=cites:${mainId}&per_page=20`);
+                const citeRes = await fetch(`${API_BASE}?filter=cites:${mainId}&per_page=30`);
                 const citeData = await citeRes.json();
                 let citePapers = citeData.results;
 
@@ -322,7 +352,6 @@
                     if(pid) edgesData.push({ source: mainId, target: pid });
                 });
 
-                // Timeline logic
                 if (activeYears.size === 0) { statusBar.textContent = "データなし"; return; }
                 const sortedYears = Array.from(activeYears).sort((a, b) => a - b);
                 const yearToY = {};
@@ -372,20 +401,21 @@
             } catch (e) { console.error(e); statusBar.textContent = "エラーが発生しました"; }
         }
 
-        // リストアイテム作成（Scholarボタン付き）
+        // リストアイテム作成（ID付与・Scholarボタン）
         function createListItem(paper) {
             const div = document.createElement('div');
+            const pid = cleanId(paper.id);
             div.className = 'paper-list-item';
+            div.id = `item-${pid}`; // ★ここにIDを付与！これでスクロールできます
             
             const author = paper.authorships?.[0]?.author?.display_name || "Unknown";
             const doi = paper.doi ? paper.doi : "";
             const title = paper.title || "No Title";
             const year = paper.publication_year;
             
-            // Scholar検索URLの作成
             const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`;
             
-            // Paperpileメタデータ（念のため残す）
+            // Paperpile Metadata
             const openUrlParams = [
                 `ctx_ver=Z39.88-2004`, `rft_val_fmt=info:ofi/fmt:kev:mtx:journal`,
                 `rft.genre=article`, `rft.atitle=${encodeURIComponent(title)}`,
@@ -402,10 +432,8 @@
                     <a href="${scholarUrl}" target="_blank" class="action-btn btn-scholar">
                         🎓 Scholar (Paperpile)
                     </a>
-                    
                     ${doi ? `<a href="${doi}" target="_blank" class="action-btn btn-doi">📄 DOI</a>` : ''}
                 </div>
-                
                 <span class="Z3988" title="${coinsTitle}"></span>
             `;
             return div;
